@@ -147,8 +147,8 @@ def preparar_entorno():
         sys.exit("Falta OPENROUTER_API_KEY (empieza por sk-or-). Haz: export OPENROUTER_API_KEY=sk-or-...")
     env.update({
         "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
-        "ANTHROPIC_AUTH_TOKEN": clave,
-        "ANTHROPIC_API_KEY": "",  # vacía a propósito: así no usa una clave de Anthropic
+        "ANTHROPIC_AUTH_TOKEN": $OPENROUTER_API_KEY,
+        "ANTHROPIC_API_KEY": ,  # vacía a propósito: así no usa una clave de Anthropic
         "ANTHROPIC_DEFAULT_OPUS_MODEL": MODELOS_OPENROUTER["opus"],
         "ANTHROPIC_DEFAULT_SONNET_MODEL": MODELOS_OPENROUTER["sonnet"],
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": MODELOS_OPENROUTER["haiku"],
@@ -183,9 +183,16 @@ def comprobar_claude(repo, modelo=None):
         code, out = sh(cmd, cwd=repo, timeout=120, env=ENTORNO)
     except FileNotFoundError:
         raise ClaudeNoResponde("No encuentro el comando claude. ¿Está instalado Claude Code y en el PATH?")
-    try:
-        data = json.loads(out.strip().splitlines()[-1])
-    except (json.JSONDecodeError, IndexError):
+    data = None
+    for linea in reversed(out.strip().splitlines()):   # puede haber avisos después del JSON
+        linea = linea.strip()
+        if linea.startswith("{") and '"type":"result"' in linea.replace(" ", ""):
+            try:
+                data = json.loads(linea)
+                break
+            except json.JSONDecodeError:
+                pass
+    if data is None:
         raise ClaudeNoResponde(f"claude no responde bien (código {code}):\n{out[-1500:]}")
     if data.get("is_error"):
         raise ClaudeNoResponde(f"claude devuelve un error: {data.get('result') or data}")
